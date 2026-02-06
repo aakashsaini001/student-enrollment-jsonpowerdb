@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Student Enrollment Form</title>
+    <meta charset="utf-8">
+
+    <!-- Bootstrap 3 -->
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+    <!-- JSONPowerDB v0.0.4 -->
+    <script src="https://login2explore.com/jpdb/resources/js/0.0.4/jpdb-commons.js"></script>
+
+    <style>
+        body { background: #f5f6fa; }
+        .panel { margin-top: 40px; }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <div class="panel panel-primary">
+        <div class="panel-heading text-center">
+            <h3>Student Enrollment Form</h3>
+        </div>
+        <div class="panel-body">
+
+            <form id="stuForm">
+
+                <div class="form-group">
+                    <label>Roll Number (Primary Key)</label>
+                    <input type="text" id="rollNo" class="form-control"
+                           placeholder="Enter Roll Number">
+                </div>
+
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="fullName" class="form-control" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label>Class</label>
+                    <input type="text" id="stuClass" class="form-control" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label>Birth Date</label>
+                    <input type="date" id="birthDate" class="form-control" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" id="address" class="form-control" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label>Enrollment Date</label>
+                    <input type="date" id="enrollDate" class="form-control" disabled>
+                </div>
+
+                <div class="text-center">
+                    <button type="button" id="saveBtn"
+                            class="btn btn-success" disabled>
+                        Save
+                    </button>
+                    <button type="button" id="updateBtn"
+                            class="btn btn-warning" disabled>
+                        Update
+                    </button>
+                    <button type="button"
+                            class="btn btn-default"
+                            onclick="resetForm()">
+                        Reset
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // ===== JPDB CONFIG =====
+    var jpdbBaseURL = "http://api.login2explore.com:5577";
+    var connToken = "90934811|-31949233166054143|90958292";
+    var dbName = "SCHOOL-DB";
+    var relName = "STUDENT-TABLE";
+
+    $("#rollNo").focus();
+
+    // Enable fields immediately when Roll No is entered
+    $("#rollNo").on("input", function () {
+        if ($(this).val().trim() !== "") {
+            $("#fullName, #stuClass, #birthDate, #address, #enrollDate")
+                .prop("disabled", false);
+            $("#saveBtn").prop("disabled", false);
+        }
+    });
+
+    function getFormData() {
+        var obj = {
+            rollNo: $("#rollNo").val(),
+            fullName: $("#fullName").val(),
+            stuClass: $("#stuClass").val(),
+            birthDate: $("#birthDate").val(),
+            address: $("#address").val(),
+            enrollDate: $("#enrollDate").val()
+        };
+
+        for (var k in obj) {
+            if (obj[k] === "") {
+                alert("All fields are mandatory");
+                return "";
+            }
+        }
+        return JSON.stringify(obj);
+    }
+
+    // SAVE (CHECK DB INSIDE SAVE)
+    $("#saveBtn").click(function () {
+
+        var rollNo = $("#rollNo").val();
+        var getReq = createGET_BY_KEYRequest(
+            connToken, dbName, relName, JSON.stringify({ rollNo: rollNo })
+        );
+
+        $.ajaxSetup({ async: false });
+        var res = executeCommandAtGivenBaseUrl(
+            getReq, jpdbBaseURL, "/api/irl"
+        );
+        $.ajaxSetup({ async: true });
+
+        if (res.status === 200 && res.data && res.data !== "{}") {
+            alert("Record already exists. Use UPDATE.");
+            $("#saveBtn").prop("disabled", true);
+            $("#updateBtn").prop("disabled", false);
+            return;
+        }
+
+        var jsonStr = getFormData();
+        if (jsonStr === "") return;
+
+        var putReq = createPUTRequest(connToken, jsonStr, dbName, relName);
+
+        $.ajaxSetup({ async: false });
+        executeCommandAtGivenBaseUrl(putReq, jpdbBaseURL, "/api/iml");
+        $.ajaxSetup({ async: true });
+
+        alert("Record saved successfully");
+        resetForm();
+    });
+
+    // UPDATE
+    $("#updateBtn").click(function () {
+
+        var jsonStr = getFormData();
+        if (jsonStr === "") return;
+
+        var getReq = createGET_BY_KEYRequest(
+            connToken, dbName, relName,
+            JSON.stringify({ rollNo: $("#rollNo").val() })
+        );
+
+        $.ajaxSetup({ async: false });
+        var res = executeCommandAtGivenBaseUrl(
+            getReq, jpdbBaseURL, "/api/irl"
+        );
+        $.ajaxSetup({ async: true });
+
+        if (!res.data || res.data === "{}") {
+            alert("No existing record to update");
+            return;
+        }
+
+        var recno = JSON.parse(res.data).rec_no;
+
+        var updateReq = createUPDATERecordRequest(
+            connToken, jsonStr, dbName, relName, recno
+        );
+
+        $.ajaxSetup({ async: false });
+        executeCommandAtGivenBaseUrl(updateReq, jpdbBaseURL, "/api/iml");
+        $.ajaxSetup({ async: true });
+
+        alert("Record updated successfully");
+        resetForm();
+    });
+
+    function resetForm() {
+        document.getElementById("stuForm").reset();
+        $("#rollNo").prop("disabled", false).focus();
+        $("#fullName, #stuClass, #birthDate, #address, #enrollDate")
+            .prop("disabled", true);
+        $("#saveBtn, #updateBtn").prop("disabled", true);
+    }
+</script>
+
+</body>
+</html>
